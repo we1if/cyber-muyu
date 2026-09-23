@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#f0e2c5">
+  <title>赛博木鱼</title>
+  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+
+    /* 米黄水彩纸底 */
+    body {
+      font-family: 'Ma Shan Zheng', 'STKaiti', 'KaiTi', '楷体', serif;
+      background:
+        radial-gradient(circle at 20% 25%, rgba(180, 130, 80, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 80% 75%, rgba(180, 130, 80, 0.05) 0%, transparent 40%),
+        repeating-linear-gradient(35deg,
+          transparent 0, transparent 3px,
+          rgba(180, 130, 80, 0.022) 3px, rgba(180, 130, 80, 0.022) 4px),
+        radial-gradient(ellipse at center, #f8f1de 0%, #e8d4ac 100%);
+      color: #4e2810;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      touch-action: manipulation;
+    }
+
+    /* 计数器 */
+    .counter { text-align: center; margin-bottom: 4px; color: #4e2810; }
+    .counter-label {
+      font-size: 22px;
+      letter-spacing: 8px;
+      padding-left: 8px;
+      opacity: 0.85;
+    }
+    .counter-value {
+      display: block;
+      font-size: 60px;
+      line-height: 1.1;
+      color: #4e2810;
+      font-variant-numeric: tabular-nums;
+      transition: transform 0.12s ease-out, color 0.2s;
+    }
+    .counter-value.bump {
+      transform: scale(1.2);
+      color: #c84a20;
+    }
+
+    /* 舞台 */
+    .stage {
+      position: relative;
+      width: min(94vw, 94vh, 420px);
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      overflow: visible;
+    }
+
+    /* 内部暖光（敲击时亮一下） */
+    .muyu-glow {
+      position: absolute;
+      top: 38%;
+      left: 22%;
+      width: 56%;
+      height: 28%;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center,
+        rgba(255, 210, 130, 0.85) 0%,
+        rgba(255, 170, 70, 0.5) 40%,
+        rgba(255, 130, 40, 0.18) 70%,
+        transparent 85%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 3;
+      filter: blur(8px);
+      mix-blend-mode: screen;
+      transform-origin: 50% 50%;
+    }
+
+    /* 木鱼本体 */
+    .muyu {
+      width: 88%;
+      height: 50%;
+      position: relative;
+      z-index: 2;
+    }
+    .muyu svg { width: 100%; height: 100%; display: block; }
+
+    /* 木鱼槌：左上方，握把横着伸进来 */
+    .mallet {
+      position: absolute;
+      top: 24%;
+      left: 3%;
+      width: 58%;
+      height: 28%;
+      z-index: 4;
+      pointer-events: none;
+      transform-origin: 8% 50%;
+      transform: rotate(-12deg);
+      transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .mallet svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    .stage.tap .mallet {
+      transform: rotate(0deg);
+      transition: transform 0.04s ease-out;
+    }
+
+    /* 撞击线（敲击瞬间在锤头周围闪现） */
+    .impact-lines { opacity: 0; }
+    .stage.tap .impact-lines { animation: impactFlash 0.32s ease-out; }
+    @keyframes impactFlash {
+      0%   { opacity: 0; }
+      18%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* 底部提示 */
+    .hint {
+      position: absolute;
+      bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+      color: rgba(94, 48, 21, 0.55);
+      font-size: 16px;
+      letter-spacing: 4px;
+      font-family: 'Ma Shan Zheng', 'STKaiti', serif;
+    }
+
+    /* 飘出的"功德+1" */
+    .gongde {
+      position: fixed;
+      pointer-events: none;
+      color: #3e1e08;
+      font-family: 'Ma Shan Zheng', 'STKaiti', 'KaiTi', serif;
+      font-size: 44px;
+      font-weight: 400;
+      letter-spacing: 2px;
+      transform: translate(-50%, 0) rotate(-4deg);
+      animation: floatUp 1.4s ease-out forwards;
+      z-index: 10;
+      white-space: nowrap;
+      text-shadow: 0 1px 0 rgba(255, 245, 220, 0.5);
+    }
+    @keyframes floatUp {
+      0%   { opacity: 0; transform: translate(-50%, 0)    rotate(-4deg) scale(0.7); }
+      18%  { opacity: 1; transform: translate(-50%, -12px) rotate(-4deg) scale(1.08); }
+      80%  { opacity: 0.6; }
+      100% { opacity: 0; transform: translate(-50%, -200px) rotate(-4deg) scale(1.3); }
+    }
+
+    /* 清零按钮 */
+    .reset-btn {
+      position: absolute;
+      top: max(20px, env(safe-area-inset-top, 20px));
+      right: max(20px, env(safe-area-inset-right, 20px));
+      background: rgba(94, 48, 21, 0.10);
+      border: 1.5px solid rgba(94, 48, 21, 0.35);
+      color: #5e3015;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: 'Ma Shan Zheng', 'STKaiti', serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .reset-btn:active { background: rgba(94, 48, 21, 0.22); }
+  </style>
+</head>
+<body>
+  <button class="reset-btn" id="resetBtn">清零</button>
+
+  <div class="counter">
+    <div class="counter-label">功 德</div>
+    <span class="counter-value" id="count">0</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="muyu-glow" id="muyuGlow"></div>
+
+    <!-- 木鱼：横向胖鱼形，厚实饱满；顶部纵长开口（中空音腔）；左端鱼头（眼+嘴） -->
+    <div class="muyu">
+      <svg viewBox="0 0 290 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <!-- 主体填色（径向渐变模拟实木凹凸） -->
+          <radialGradient id="woodFill" cx="40%" cy="38%" r="78%">
+            <stop offset="0%"   stop-color="#eacd9d" />
+            <stop offset="50%"  stop-color="#c8966a" />
+            <stop offset="100%" stop-color="#8a5e30" />
+          </radialGradient>
+          <!-- 上下分割的色阶（让"上下两半厚实感"明显） -->
+          <linearGradient id="bodyShade" x1="0" y1="40" x2="0" y2="156" gradientUnits="userSpaceOnUse">
+            <stop offset="0%"   stop-color="rgba(255,230,190,0.30)" />
+            <stop offset="50%"  stop-color="rgba(0,0,0,0)" />
+            <stop offset="100%" stop-color="rgba(0,0,0,0.18)" />
+          </linearGradient>
+        </defs>
+
+        <!-- 主体：横向胖椭圆，弧形前后，厚实饱满 -->
+        <path d="M 22 95
+                 C 14 72, 24 48, 58 40
+                 C 100 32, 145 34, 185 44
+                 C 222 52, 252 67, 262 90
+                 C 270 102, 268 116, 256 125
+                 C 244 140, 214 152, 175 156
+                 C 130 158, 80 152, 50 142
+                 C 28 132, 14 116, 18 102
+                 C 18 99, 20 97, 22 95 Z"
+              fill="url(#woodFill)"
+              stroke="#5e3015"
+              stroke-width="2.8"
+              stroke-linejoin="round"
+              stroke-linecap="round" />
+
+        <!-- 上下色阶叠加层（让上亮下暗，更立体厚实） -->
+        <path d="M 22 95
+                 C 14 72, 24 48, 58 40
+                 C 100 32, 145 34, 185 44
+                 C 222 52, 252 67, 262 90
+                 C 270 102, 268 116, 256 125
+                 C 244 140, 214 152, 175 156
+                 C 130 158, 80 152, 50 142
+                 C 28 132, 14 116, 18 102
+                 C 18 99, 20 97, 22 95 Z"
+              fill="url(#bodyShade)" />
+
+        <!-- 顶部纵长开口（中空音腔的入口，沿长轴方向铺开） -->
+        <path d="M 78 70
+                 Q 165 53 252 92
+                 L 252 98
+                 Q 165 65 78 82 Z"
+              fill="#150a04"
+              stroke="#5e3015"
+              stroke-width="0.8"
+              stroke-linejoin="round" />
+
+        <!-- 开口边缘受光（露白一点点，体现立体） -->
+        <path d="M 82 70 Q 165 55 248 92"
+              stroke="rgba(255,220,170,0.32)"
+              stroke-width="0.6"
+              fill="none" />
+
+        <!-- 鱼眼（左端头上方，传统雕饰） -->
+        <circle cx="54" cy="72" r="3.4"
+                fill="#1f0e04"
+                stroke="#0a0402"
+                stroke-width="0.6" />
+        <circle cx="53" cy="71" r="1"
+                fill="rgba(255,230,180,0.6)" />
+
+        <!-- 鱼嘴/鱼口（前端弯月形小切口） -->
+        <path d="M 16 100
+                 Q 28 104 40 108"
+              stroke="#3a1e08"
+              stroke-width="1.6"
+              fill="none"
+              stroke-linecap="round" />
+
+        <!-- 木纹（顺体走的多道弧线） -->
+        <path d="M 36 80  Q 145 70  255 88"  stroke="#7a4520" stroke-width="0.7" fill="none" opacity="0.5" />
+        <path d="M 26 108 Q 145 118 250 108" stroke="#7a4520" stroke-width="0.7" fill="none" opacity="0.4" />
+        <path d="M 36 132 Q 145 140 230 130" stroke="#7a4520" stroke-width="0.6" fill="none" opacity="0.3" />
+        <path d="M 50 148 Q 145 152 218 146" stroke="#7a4520" stroke-width="0.5" fill="none" opacity="0.25" />
+      </svg>
+    </div>
+
+    <!-- 木鱼槌：长柄横伸进来，浅色圆头 + 撞击破折线 -->
+    <div class="mallet" id="mallet">
+      <svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="handleG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#c8a06c" />
+            <stop offset="55%"  stop-color="#a87045" />
+            <stop offset="100%" stop-color="#7a4a25" />
+          </linearGradient>
+          <radialGradient id="headG" cx="30%" cy="30%" r="85%">
+            <stop offset="0%"   stop-color="#fbf6e8" />
+            <stop offset="55%"  stop-color="#e0d5b8" />
+            <stop offset="100%" stop-color="#a89070" />
+          </radialGradient>
+        </defs>
+
+        <!-- 握把（细长木杆） -->
+        <rect x="0" y="33" width="138" height="14" rx="6"
+              fill="url(#handleG)"
+              stroke="#5e3015"
+              stroke-width="2"
+              stroke-linejoin="round" />
+        <!-- 握把受光高光 -->
+        <rect x="3" y="34" width="130" height="3" rx="1.5"
+              fill="rgba(255, 230, 195, 0.55)" />
+
+        <!-- 锤头（浅色绒球） -->
+        <circle cx="156" cy="40" r="22"
+                fill="url(#headG)"
+                stroke="#5e3015"
+                stroke-width="2.2" />
+        <!-- 锤头高光 -->
+        <ellipse cx="148" cy="32" rx="7" ry="5"
+                 fill="rgba(255, 255, 255, 0.7)" />
+        <!-- 锤头底面收口阴影 -->
+        <path d="M 138 50 Q 156 58, 174 50"
+              stroke="#5e3015"
+              stroke-width="1.5"
+              fill="none"
+              opacity="0.6" />
+
+        <!-- 撞击破折线（敲击瞬间闪现） -->
+        <g class="impact-lines" stroke="#5e3015" stroke-width="2.4" stroke-linecap="round" fill="none">
+          <line x1="156" y1="6"  x2="153" y2="-2" />
+          <line x1="142" y1="9"  x2="136" y2="3"  />
+          <line x1="170" y1="9"  x2="176" y2="3"  />
+          <line x1="160" y1="4"  x2="160" y2="-4" />
+          <line x1="128" y1="17" x2="120" y2="14" />
+          <line x1="186" y1="17" x2="194" y2="14" />
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="hint">轻触屏幕 · 功德+1</div>
+
+  <script>
+    const STORAGE_KEY = 'cyber-muyu-count-v1';
+
+    const stage     = document.getElementById('stage');
+    const counterEl = document.getElementById('count');
+    const resetBtn  = document.getElementById('resetBtn');
+    const glowEl    = document.getElementById('muyuGlow');
+
+    let count = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+    if (Number.isNaN(count)) count = 0;
+    counterEl.textContent = count;
+
+    let audioCtx;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return false;
+        audioCtx = new Ctx();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return true;
+    }
+
+    /**
+     * 木鱼声 —— 短促清脆的"咚"：
+     * - 单条 420 → 320 Hz 正弦波（低频"咚"本体），仅 90ms 衰减 —— 没有长拖尾
+     * - 起手加一段 1400Hz 高通过的噪声 burst（20ms），做"清脆"的敲击头
+     * - 总时长约 100ms，敲一下就是"咚"一声
+     */
+    function playMuyuSound() {
+      if (!ensureAudio()) return;
+      const ctx = audioCtx;
+      const t = ctx.currentTime;
+
+      // "咚"的本体
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(420, t);
+      osc.frequency.exponentialRampToValueAtTime(320, t + 0.06);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.7, t + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      osc.connect(g).connect(ctx.destination);
+
+      // 清脆的敲击瞬态
+      const bufSize = Math.floor(ctx.sampleRate * 0.02);
+      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.12));
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buf;
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 1400;
+      const gN = ctx.createGain();
+      gN.gain.setValueAtTime(0.18, t);
+      gN.gain.exponentialRampToValueAtTime(0.0001, t + 0.025);
+      noise.connect(hp).connect(gN).connect(ctx.destination);
+
+      osc.start(t); osc.stop(t + 0.10);
+      noise.start(t);
+    }
+
+    function vibrate() {
+      try {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
+          navigator.vibrate(35);
+        }
+      } catch (_) {}
+    }
+
+    function spawnGongDe(x, y) {
+      const el = document.createElement('div');
+      el.className = 'gongde';
+      el.textContent = '功德+1';
+      const sway = (Math.random() - 0.5) * 60;
+      el.style.left = (x + sway) + 'px';
+      el.style.top  = y + 'px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1500);
+    }
+
+    function pulseGlow() {
+      glowEl.animate(
+        [
+          { opacity: 0, transform: 'scale(0.92)' },
+          { opacity: 1, transform: 'scale(1.0)', offset: 0.18 },
+          { opacity: 0, transform: 'scale(1.18)' }
+        ],
+        { duration: 700, easing: 'ease-out' }
+      );
+    }
+
+    function bumpCounter() {
+      counterEl.classList.add('bump');
+      setTimeout(() => counterEl.classList.remove('bump'), 130);
+    }
+
+    function handleTap(e) {
+      e.preventDefault();
+      if (e.target && e.target.closest && e.target.closest('#resetBtn')) return;
+
+      count++;
+      counterEl.textContent = count;
+      try { localStorage.setItem(STORAGE_KEY, count); } catch (_) {}
+
+      bumpCounter();
+      vibrate();
+      playMuyuSound();
+      pulseGlow();
+
+      let cx, cy;
+      if (e.touches && e.touches.length) {
+        cx = e.touches[0].clientX;
+        cy = e.touches[0].clientY;
+      } else {
+        cx = e.clientX;
+        cy = e.clientY;
+      }
+      if (typeof cx !== 'number' || typeof cy !== 'number') {
+        const rect = stage.getBoundingClientRect();
+        cx = rect.left + rect.width / 2;
+        cy = rect.top + rect.height / 2;
+      }
+      spawnGongDe(cx, cy);
+
+      stage.classList.add('tap');
+      setTimeout(() => stage.classList.remove('tap'), 120);
+    }
+
+    stage.addEventListener('click', handleTap);
+    stage.addEventListener('touchstart', handleTap, { passive: false });
+
+    function clearCount(e) {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      count = 0;
+      counterEl.textContent = 0;
+      try { localStorage.setItem(STORAGE_KEY, 0); } catch (_) {}
+    }
+    resetBtn.addEventListener('click', clearCount);
+    resetBtn.addEventListener('touchstart', clearCount, { passive: false });
+  </script>
+</body>
+</html>
